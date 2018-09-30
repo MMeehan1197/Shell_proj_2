@@ -42,7 +42,7 @@ int sh( int argc, char **argv, char **envp )
   while ( go )
   {
     /* print your prompt */
-    printf(strcat(homedir, ">>"));
+    printf("%s>>", homedir);
     /* get command line and process */
 
     fgets(commandline, MAX_CANON, stdin);
@@ -52,27 +52,20 @@ int sh( int argc, char **argv, char **envp )
     argsct = 0;
     args[argsct] = command;
     arg = strtok(NULL, " ");
-    if(arg != NULL){ //Sets the arguments
-	argsct++;
-	args[argsct] = arg;
-	printf("arg %d is %s\n", argsct, arg);
+    while(arg != NULL){
+        argsct++;
+        args[argsct] = arg;
+        printf("arg %d is %s\n", argsct, arg);
         arg = strtok(NULL, " ");
-	while(arg != NULL){
-	    argsct++;
-	    args[argsct] = arg;
-	    printf("arg %d is %s\n", argsct, arg);
-	    arg = strtok(NULL, " ");
-	}
-	arg[strcspn(arg, "\n")] = 0;
     }
+
+    args[argsct][strlen(args[argsct]) - 1] = '\0';
 
     if(access(command, F_OK) == 0){ // Checks to see if command is a direct path, and if so then execute
 	execve(command, args, envp);
     }
     /* check for each built in command and implement */
-    printf("exit is %d", strcmp(command, "exit\n"));
-    printf("which is %d", strcmp(command, "which\n"));
-    if(strcmp(command,"exit\n") == 0){
+    if(strcmp(command,"exit") == 0){
 	exit(2);
     }
     if(strcmp(command,"which") == 0){
@@ -80,7 +73,7 @@ int sh( int argc, char **argv, char **envp )
 	    printf("usage: %s [command]", command);
 	    break;
 	}
-	which(*args, pathlist);
+	which(args[1], pathlist);
     }
 
      /*  else  program to exec */
@@ -96,17 +89,23 @@ char *which(char *command, struct pathelement *pathlist )
 {
    /* loop through pathlist until finding command and return it.  Return
    NULL when not found. */
-    char *commandpath;
-    commandpath = calloc(100, sizeof(char));
+    char *commandpath = calloc(100, sizeof(char));
+    char *commandtemp = calloc(strlen(command), sizeof(char));
     while(pathlist->next != NULL){
-        commandpath = strcat(pathlist->element, "/");
-        commandpath = strcat(commandpath, command); //Adds the / to the PATH element and$
+        commandtemp = command;
+	commandpath = pathlist->element;
+        commandpath = strcat(commandpath, "/");
+        commandpath = strcat(commandpath, commandtemp); //Adds the / to the PATH element and$
+	pathlist = pathlist->next;	
+        printf("path->element is: %s\n", pathlist->element);
+	printf("The command value is: %s\n", command);
         if(access(commandpath, F_OK) == 0){ //checks if the commandpath exists (0 is goo$
-            printf("%s\n",commandpath);
-            return commandpath;
+	    printf("FINAL VALUE: %s\n", commandpath);
+	    pathlist = get_path();
+	    return commandpath;
         }
     }
-    printf("There is no such command in the PATH. Exiting...");
+    printf("There is no such command in the PATH. Exiting...\n");
     return NULL;
 
 } /* which() */
