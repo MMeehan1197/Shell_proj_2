@@ -34,28 +34,31 @@ int sh( int argc, char **argv, char **envp )
   }
   owd = calloc(strlen(pwd) + 1, sizeof(char));
   memcpy(owd, pwd, strlen(pwd));
-  prompt[0] = ' '; prompt[1] = '\0';
-
-  /* Put PATH into a linked list */
-  pathlist = get_path();
 
   while ( go )
   {
+  /* Put PATH into a linked list */
+    pathlist = get_path();
+
+    prompt[0] = ' '; prompt[1] = '\0';
+
+
     /* print your prompt */
     printf("%s>>", homedir);
+
     /* get command line and process */
 
     fgets(commandline, MAX_CANON, stdin);
     command = calloc(MAX_CANON, sizeof(char));
     command = strtok(commandline, " ");//Gets the first word they type, which will be the command
-    printf("The command is %s\n", command);
+//    printf("The command is %s\n", command);
     argsct = 0;
     args[argsct] = command;
     arg = strtok(NULL, " ");
     while(arg != NULL){
         argsct++;
         args[argsct] = arg;
-        printf("arg %d is %s\n", argsct, arg);
+//        printf("arg %d is %s\n", argsct, arg);
         arg = strtok(NULL, " ");
     }
 
@@ -65,22 +68,64 @@ int sh( int argc, char **argv, char **envp )
 	execve(command, args, envp);
     }
     /* check for each built in command and implement */
+    //EXIT COMMAND
     if(strcmp(command,"exit") == 0){
 	exit(2);
     }
-    if(strcmp(command,"which") == 0){
+    //WHICH COMMAND
+    else if(strcmp(command,"which") == 0){
 	if(argsct != 1){
 	    printf("usage: %s [command]", command);
 	    break;
 	}
 	which(args[1], pathlist);
     }
+    //PROMPT COMMAND
+    else if(strcmp(command,"prompt") == 0){ 
+	if(argsct == 1){
+	    strcpy(prompt, args[1]);
+	}
+	if(prompt[0] == ' ' && prompt[1] == '\0'){
+            printf("Input prompt prefix: ");
+            fgets(prompt, PROMPTMAX, stdin);
+        }
+        printf("%s\n", prompt);
+    }
+    //LIST COMMAND
+    else if(strcmp(command,"list") == 0){
+        if(argsct != 1){
+	    printf("usage: %s [command]", command);
+            break;
+        }
+        list(homedir);
+    }
+    //CD COMMAND
+    if (strcmp(command, "cd") == 0){
+	if(args[1] == NULL){
+	    chdir(homedir);
+	}
+	else if(args[1] == "-"){
+	    printf("%s\n", pwd);
+	    char *temp = owd;
+	    strcpy(owd, pwd);
+	    strcpy(pwd, temp);
+	    chdir(owd);	    
+	}
+	else if(args[1] == ""){
+	    
+	}
+ 	owd = getcwd(NULL, PATH_MAX + 1);
+	owd = strcat(owd, "/");
+	owd = strcat(owd, argv[1]);
+	chdir(owd);
+	//printf("Changing directory...\n");
+    }
 
      /*  else  program to exec */
        /* find it */
-       /* do fork(), execve() and waitpid() */
-      else
-        fprintf(stderr, "%s: Command not found.\n", args[0]);
+     /* do fork(), execve() and waitpid() */
+  else
+      fprintf(stderr, "%s: Command not found.\n", args[0]);
   }
   return 0;
 } /* sh() */
@@ -97,11 +142,8 @@ char *which(char *command, struct pathelement *pathlist )
         commandpath = strcat(commandpath, "/");
         commandpath = strcat(commandpath, commandtemp); //Adds the / to the PATH element and$
 	pathlist = pathlist->next;	
-        printf("path->element is: %s\n", pathlist->element);
-	printf("The command value is: %s\n", command);
         if(access(commandpath, F_OK) == 0){ //checks if the commandpath exists (0 is goo$
-	    printf("FINAL VALUE: %s\n", commandpath);
-	    pathlist = get_path();
+	    printf("%s\n", commandpath);
 	    return commandpath;
         }
     }
@@ -131,4 +173,13 @@ void list ( char *dir )
 {
   /* see man page for opendir() and readdir() and print out filenames for
   the directory passed */
+    DIR *mydir;
+    struct dirent *myfile;
+
+    mydir = opendir(dir);
+    while((myfile = readdir(mydir)) != NULL)
+    {
+        printf(" %s\n", myfile->d_name);
+    }
+    closedir(mydir);
 } /* list() */
