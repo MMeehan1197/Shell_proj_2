@@ -44,7 +44,7 @@ int sh( int argc, char **argv, char **envp )
 
 
     /* print your prompt */
-    printf("%s>>", homedir);
+    printf("%s>>", getcwd(NULL, PATH_MAX+1));
 
     /* get command line and process */
 
@@ -70,15 +70,26 @@ int sh( int argc, char **argv, char **envp )
     /* check for each built in command and implement */
     //EXIT COMMAND
     if(strcmp(command,"exit") == 0){
+	free(prompt);
+	free(commandline);
+	free(args);
 	exit(2);
     }
     //WHICH COMMAND
     else if(strcmp(command,"which") == 0){
 	if(argsct != 1){
 	    printf("usage: %s [command]", command);
-	    break;
+	    continue;
 	}
-	which(args[1], pathlist);
+	printf("%s\n", which(args[1], pathlist));
+    }
+    //WHERE COMMAND
+    else if(strcmp(command,"where") == 0){
+        if(argsct != 1){
+            printf("usage: %s [command]", command);
+            continue;
+        }
+        where(args[1], pathlist);
     }
     //PROMPT COMMAND
     else if(strcmp(command,"prompt") == 0){ 
@@ -93,37 +104,49 @@ int sh( int argc, char **argv, char **envp )
     }
     //LIST COMMAND
     else if(strcmp(command,"list") == 0){
-        if(argsct != 1){
-	    printf("usage: %s [command]", command);
-            break;
+        if(argsct != 0){
+	    printf("usage: %s [command]");
+            continue;
         }
         list(homedir);
     }
     //CD COMMAND
-    if (strcmp(command, "cd") == 0){
-	if(args[1] == NULL){
-	    chdir(homedir);
+    else if (strcmp(command, "cd") == 0){
+	char *temp;
+	temp = calloc(PATH_MAX+1, sizeof(char));
+	if(args[1] == NULL){    
+	    memcpy(temp, pwd, strlen(pwd));
+	    memcpy(pwd, homedir, strlen(homedir));
+	    memcpy(owd, temp, strlen(temp));
+	    chdir(pwd);
 	}
 	else if(args[1] == "-"){
 	    printf("%s\n", pwd);
-	    char *temp = owd;
-	    strcpy(owd, pwd);
-	    strcpy(pwd, temp);
+	    memcpy(temp, pwd, strlen(pwd));
+            memcpy(pwd, owd, strlen(owd));
+            memcpy(owd, temp, strlen(temp));
+            chdir(pwd);
+	}
+	else{
+ 	    owd = getcwd(NULL, PATH_MAX + 1);
+	    owd = strcat(owd, "/");
+	    owd = strcat(owd, argv[1]);
 	    chdir(owd);	    
 	}
-	else if(args[1] == ""){
-	    
-	}
- 	owd = getcwd(NULL, PATH_MAX + 1);
-	owd = strcat(owd, "/");
-	owd = strcat(owd, argv[1]);
-	chdir(owd);
 	//printf("Changing directory...\n");
     }
 
+    else if (strcmp(command, "pid") == 0){
+        pidd();
+    }
      /*  else  program to exec */
        /* find it */
      /* do fork(), execve() and waitpid() */
+    else if(which(command, pathlist) != NULL){
+	fork();	
+	execve(which(command, pathlist), args, envp);
+	waitpid();
+    }
   else
       fprintf(stderr, "%s: Command not found.\n", args[0]);
   }
@@ -137,13 +160,13 @@ char *which(char *command, struct pathelement *pathlist )
     char *commandpath = calloc(100, sizeof(char));
     char *commandtemp = calloc(strlen(command), sizeof(char));
     while(pathlist->next != NULL){
-        commandtemp = command;
-	commandpath = pathlist->element;
+        strcpy(commandtemp, command);
+	strcpy(commandpath, "");
+	strcpy(commandpath, pathlist->element);
         commandpath = strcat(commandpath, "/");
         commandpath = strcat(commandpath, commandtemp); //Adds the / to the PATH element and$
 	pathlist = pathlist->next;	
         if(access(commandpath, F_OK) == 0){ //checks if the commandpath exists (0 is goo$
-	    printf("%s\n", commandpath);
 	    return commandpath;
         }
     }
@@ -155,18 +178,21 @@ char *which(char *command, struct pathelement *pathlist )
 char *where(char *command, struct pathelement *pathlist )
 {
   /* similarly loop through finding all locations of command */
-    char *commandpath;
-    commandpath = calloc(100, sizeof(char));
-    char *result = "";
+    char *commandpath = calloc(100, sizeof(char));
+    char *commandtemp = calloc(strlen(command), sizeof(char));
     while(pathlist->next != NULL){
-        commandpath = strcat(pathlist->element, "/");
-        commandpath = strcat(commandpath, command); //Adds the / to the PATH element and$
+        strcpy(commandtemp, command);
+	strcpy(commandpath, "");
+        strcpy(commandpath , pathlist->element);
+        commandpath = strcat(commandpath, "/");
+        commandpath = strcat(commandpath, commandtemp); //Adds the / to the PATH element and$
+        pathlist = pathlist->next;
         if(access(commandpath, F_OK) == 0){ //checks if the commandpath exists (0 is goo$
-	    printf("%s\n",commandpath);
-	    strcat(result, commandpath);
+            printf("%s\n", commandpath);
         }
     }
-    return result;
+    return NULL;
+
 } /* where() */
 
 void list ( char *dir )
@@ -183,3 +209,14 @@ void list ( char *dir )
     }
     closedir(mydir);
 } /* list() */
+    
+int pidd(){
+    int p_id,p_pid;
+
+    p_id=getpid();  /*process id*/
+    p_pid=getpid(); /*parent process id*/
+
+    printf("Process ID: %d\n",p_id);
+    printf("Parent Process ID: %d\n",p_pid);
+    return 0;
+}
